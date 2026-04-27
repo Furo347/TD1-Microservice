@@ -1,0 +1,55 @@
+
+services:
+  nats:
+    image: nats:2.10-alpine
+    container_name: nats-server
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    command: "-js"
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "4222"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  microservice1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: microservice1
+    depends_on:
+      nats:
+        condition: service_healthy
+    environment:
+      - NATS_SERVERS=nats://nats:4222
+    networks:
+      - microservices-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', (r) => {if (r.statusCode !== 404) throw new Error(r.statusCode)})"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  microservice2:
+    build:
+      context: .
+      dockerfile: Dockerfile.microservice2
+    container_name: microservice2
+    depends_on:
+      nats:
+        condition: service_healthy
+    environment:
+      - NATS_SERVERS=nats://nats:4222
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+networks:
+  microservices-network:
+    driver: bridge
+

@@ -41,6 +41,123 @@ $ docker stop nats-server
 $ docker rm nats-server
 ```
 
+## 🐳 Docker et Docker Compose
+
+### Déploiement avec Docker Compose (Recommandé)
+
+La manière la plus simple de déployer tous les services (microservice 1, microservice 2, et serveur NATS) est d'utiliser Docker Compose. Tous les services sont automatiquement configurés et communiquent via le réseau Docker :
+
+```bash
+# Démarrer tous les services en arrière-plan
+$ docker-compose up -d
+
+# Vérifier le statut des services
+$ docker-compose ps
+
+# Voir les logs en direct
+$ docker-compose logs -f
+
+# Voir les logs d'un service spécifique
+$ docker-compose logs -f microservice1
+$ docker-compose logs -f microservice2
+$ docker-compose logs -f nats
+
+# Arrêter tous les services
+$ docker-compose down
+
+# Arrêter et supprimer les volumes
+$ docker-compose down -v
+```
+
+### Architecture Docker Compose
+
+Le fichier `docker-compose.yml` orchestre les services suivants :
+
+1. **nats** : Serveur NATS (port 4222 interne, 8222 pour l'admin)
+2. **microservice1** : Service principal (écoute sur NATS)
+3. **microservice2** : Service secondaire (écoute sur NATS)
+
+Les services sont liés entre eux via un réseau Docker interne et disposent de healthchecks pour assurer la disponibilité.
+
+### Construire et déployer manuellement
+
+Si vous préférez construire les images Docker manuellement :
+
+```bash
+# Construire l'image du Microservice 1
+$ docker build -t microservice1:latest -f Dockerfile .
+
+# Construire l'image du Microservice 2
+$ docker build -t microservice2:latest -f Dockerfile.microservice2 .
+
+# Démarrer le serveur NATS
+$ docker run -d --name nats-server -p 4222:4222 -p 8222:8222 nats:2.10-alpine
+
+# Attendre que NATS soit prêt
+$ sleep 2
+
+# Démarrer Microservice 1
+$ docker run -d --name microservice1 \
+  --network bridge \
+  --link nats-server:nats-server \
+  -e NATS_SERVERS=nats://nats-server:4222 \
+  microservice1:latest
+
+# Démarrer Microservice 2
+$ docker run -d --name microservice2 \
+  --network bridge \
+  --link nats-server:nats-server \
+  -e NATS_SERVERS=nats://nats-server:4222 \
+  microservice2:latest
+
+# Vérifier les conteneurs
+$ docker ps
+
+# Voir les logs
+$ docker logs -f microservice1
+$ docker logs -f microservice2
+
+# Arrêter les conteneurs
+$ docker stop microservice1 microservice2 nats-server
+$ docker rm microservice1 microservice2 nats-server
+```
+
+### Fichiers Docker
+
+- **`Dockerfile`** : Image pour Microservice 1 (build multi-étapes pour optimiser la taille)
+  - Compile le projet TypeScript
+  - Lance `node dist/main`
+
+- **`Dockerfile.microservice2`** : Image pour Microservice 2
+  - Compile le projet TypeScript
+  - Lance `node dist/microservice2/main`
+
+- **`docker-compose.yml`** : Orchestration complète des services
+  - Configure les variables d'environnement
+  - Gère les dépendances entre services
+  - Expose les ports nécessaires
+
+- **`.dockerignore`** : Exclut les fichiers inutiles lors de la construction
+  - `node_modules`, `.git`, logs, caches, etc.
+
+### Développement avec Docker
+
+Pour développer localement tout en utilisant NATS dans Docker :
+
+```bash
+# Démarrer seulement le serveur NATS
+$ docker run -d --name nats-dev -p 4222:4222 -p 8222:8222 nats:2.10-alpine
+
+# Ensuite, lancez les microservices localement
+$ pnpm run start:dev
+
+# Dans un autre terminal, lancez Microservice 2
+$ cd microservice2 && pnpm run start:dev
+
+# Arrêter NATS quand vous avez terminé
+$ docker stop nats-dev && docker rm nats-dev
+```
+
 ## Structure du projet
 
 ```

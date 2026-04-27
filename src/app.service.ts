@@ -6,10 +6,11 @@ export class AppService {
   private client: ClientProxy;
 
   constructor() {
+    const natsServers = process.env.NATS_SERVERS || 'nats://localhost:4222';
     this.client = ClientProxyFactory.create({
       transport: Transport.NATS,
       options: {
-        servers: ['nats://localhost:4222'],
+        servers: [natsServers],
       },
     });
   }
