@@ -6,13 +6,8 @@ import { AppService } from './app.service';
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
-  @MessagePattern('ping')
-  async getHello(): Promise<string> {
-    return this.appService.getHello();
-  }
-
-  @MessagePattern('communicate')
-  async communicate(): Promise<string> {
-    return this.appService.communicateWithService2();
+  @MessagePattern('hello')
+  getHello(data: any): string {
+    return this.appService.getHello(data);
   }
 }

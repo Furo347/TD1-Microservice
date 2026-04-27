@@ -2,72 +2,184 @@
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="200" alt="Nest Logo" /></a>
 </p>
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
-
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+# TD1 - Microservices avec NestJS et NATS
 
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Ce projet démontre une architecture microservices basée sur [NestJS](https://github.com/nestjs/nest) utilisant **NATS** comme système de messagerie pour la communication inter-services.
+
+### Composants du projet
+
+- **Microservice 1** : Service principal qui orchestre la communication et expose les endpoints `ping` et `communicate`
+- **Microservice 2** : Service secondaire qui écoute les messages et répond aux requêtes
+- **Serveur NATS** : Broker de messages pour la communication asynchrone entre les microservices
+
+## Prérequis
+
+- **Node.js** : v18+ 
+- **npm/pnpm** : gestionnaire de paquets
+- **Docker** : pour exécuter le serveur NATS
 
 ## Installation
+
+### 1. Installer les dépendances du projet principal
 
 ```bash
 $ pnpm install
 ```
 
-## Running the app
+### 2. Démarrer le serveur NATS (via Docker)
 
 ```bash
-# development
-$ pnpm run start
+$ docker run -d --name nats-server -p 4222:4222 -p 8222:8222 nats:2.10-alpine
+```
 
-# watch mode
+Si un conteneur NATS existe déjà, supprimez-le d'abord :
+
+```bash
+$ docker stop nats-server
+$ docker rm nats-server
+```
+
+## Structure du projet
+
+```
+TD1-Microservice/
+├── src/                    # Microservice 1 (Principal)
+│   ├── main.ts            # Point d'entrée du microservice 1
+│   ├── app.module.ts      # Module applicatif
+│   ├── app.controller.ts  # Contrôleur avec MessagePattern
+│   └── app.service.ts     # Service avec client NATS
+├── microservice2/          # Microservice 2 (Secondaire)
+│   └── src/
+│       ├── main.ts        # Point d'entrée du microservice 2
+│       ├── app.module.ts  # Module applicatif
+│       ├── app.controller.ts
+│       └── app.service.ts
+├── test-communication.ts  # Script de test inter-services
+├── package.json
+└── README.md
+```
+
+## Lancer l'application
+
+### Démarrer Microservice 1
+
+```bash
+$ pnpm run start:dev
+```
+
+### Démarrer Microservice 2 (dans un autre terminal)
+
+```bash
+$ cd microservice2
+$ pnpm run start:dev
+```
+
+Ou directement depuis la racine :
+
+```bash
+$ npx ts-node microservice2/src/main.ts
+```
+
+## Communication entre les microservices
+
+### Microservice 1 expose deux patterns NATS :
+
+- **`ping`** : Retourne "Hello World!"
+  ```javascript
+  client.send('ping', {})
+  ```
+
+- **`communicate`** : Communique avec Microservice 2
+  ```javascript
+  client.send('communicate', {})
+  ```
+
+### Microservice 2 écoute :
+
+- **`hello`** : Traite les messages reçus de Microservice 1
+  ```javascript
+  Réponse: "Hello from Microservice 2! Received: {...}"
+  ```
+
+## Test de la communication
+
+Pour tester la communication complète entre les deux microservices :
+
+```bash
+$ npx ts-node test-communication.ts
+```
+
+Résultat attendu :
+
+```
+Response from Service 1: Hello World!
+Response from Service 1 communicating with Service 2: Hello from Microservice 2! Received: {"message":"Hello from Microservice 1"}
+```
+
+## Commandes disponibles
+
+```bash
+# Démarrage en mode développement
 $ pnpm run start:dev
 
-# production mode
+# Démarrage en production
 $ pnpm run start:prod
-```
 
-## Test
+# Construction du projet
+$ pnpm run build
 
-```bash
-# unit tests
+# Tests unitaires
 $ pnpm run test
 
-# e2e tests
+# Tests e2e
 $ pnpm run test:e2e
 
-# test coverage
+# Coverage
 $ pnpm run test:cov
+
+# Linting
+$ pnpm run lint
+
+# Formatage du code
+$ pnpm run format
 ```
 
-## Support
+## Configuration NATS
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+Les microservices se connectent au serveur NATS via l'URL `nats://localhost:4222`. Cette configuration est définie dans :
 
-## Stay in touch
+- `src/app.service.ts` pour Microservice 1 (client)
+- `src/main.ts` pour Microservice 1 (serveur)
+- `microservice2/src/main.ts` pour Microservice 2 (serveur)
 
-- Author - [Kamil Myśliwiec](https://kamilmysliwiec.com)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+Pour modifier le serveur NATS, mettez à jour l'option `servers` dans les fichiers `main.ts` et `app.service.ts`.
+
+## Dépannage
+
+### Erreur : "Empty response. There are no subscribers listening to that message"
+- Assurez-vous que les deux microservices sont actuellement en cours d'exécution
+- Vérifiez que le serveur NATS est démarré (`docker ps`)
+
+### Erreur de connexion NATS
+- Vérifiez que le port 4222 n'est pas déjà utilisé
+- Assurez-vous que Docker est en cours d'exécution
+
+### Port 4222 déjà utilisé
+Arrêtez les conteneurs existants :
+
+```bash
+$ docker ps
+$ docker stop <container-id>
+```
+
+## Ressources supplémentaires
+
+- [Documentation NestJS Microservices](https://docs.nestjs.com/microservices/basics)
+- [Documentation NATS](https://nats.io/docs/)
+- [Docker Hub - NATS](https://hub.docker.com/_/nats)
 
 ## License
 
-Nest is [MIT licensed](LICENSE).
+Ce projet est sous licence MIT.
